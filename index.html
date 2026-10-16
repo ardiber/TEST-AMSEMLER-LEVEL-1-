@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ujian Online – Assembler Level 1</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ LAYAR 1: LOGIN ============ -->
+<section id="scr-login" class="screen active">
+  <div class="card login-card">
+    <div class="brand">⚙️</div>
+    <h1 id="judul-ujian">Ujian Online</h1>
+    <p class="muted" id="sub-judul"></p>
+
+    <form id="form-login" autocomplete="off">
+      <label>Nama Lengkap
+        <input id="in-nama" type="text" required maxlength="60" placeholder="Contoh: Budi Santoso">
+      </label>
+      <label>DEVISI/JABATAN
+        <input id="in-id" type="text" required maxlength="30" placeholder="Contoh: XII-TKR-01 / 12345">
+      </label>
+      <label>No. WhatsApp (untuk menerima nilai)
+        <input id="in-wa" type="tel" required inputmode="numeric" maxlength="16" placeholder="08xxxxxxxxxx">
+      </label>
+      <div id="info-aturan" class="rules"></div>
+      <p id="login-err" class="err" hidden></p>
+      <button class="btn primary big" type="submit">Mulai Ujian</button>
+    </form>
+  </div>
+</section>
+
+<!-- ============ LAYAR 2: UJIAN ============ -->
+<section id="scr-exam" class="screen">
+  <header class="topbar">
+    <div class="who"><strong id="top-nama"></strong><span id="top-id" class="muted"></span></div>
+    <div class="progress-wrap"><div class="progress"><i id="bar"></i></div><small id="bar-txt"></small></div>
+    <div id="timer" class="timer">00:00:00</div>
+  </header>
+
+  <div class="exam-body">
+    <main class="card q-card">
+      <div class="q-head">
+        <span id="q-no" class="badge"></span>
+        <span id="q-tipe" class="badge soft"></span>
+        <button id="btn-flag" class="btn ghost small" type="button">🚩 Tandai ragu-ragu</button>
+      </div>
+      <h2 id="q-text"></h2>
+      <div id="q-opts" class="opts"></div>
+      <div class="nav">
+        <button id="btn-prev" class="btn" type="button">← Sebelumnya</button>
+        <button id="btn-next" class="btn primary" type="button">Berikutnya →</button>
+      </div>
+    </main>
+
+    <aside class="card side">
+      <h3>Navigasi Soal</h3>
+      <div id="grid" class="grid"></div>
+      <ul class="legend">
+        <li><i class="dot done"></i> Terjawab</li>
+        <li><i class="dot flag"></i> Ragu-ragu</li>
+        <li><i class="dot"></i> Belum</li>
+      </ul>
+      <button id="btn-finish" class="btn danger big" type="button">Selesai &amp; Kirim Jawaban</button>
+    </aside>
+  </div>
+</section>
+
+<!-- ============ LAYAR 3: HASIL ============ -->
+<section id="scr-result" class="screen">
+  <div class="card result-card">
+    <div id="res-icon" class="brand">🎯</div>
+    <h1>Ujian Selesai</h1>
+    <p class="muted" id="res-nama"></p>
+    <div class="score"><span id="res-skor">0</span><small>/ 100</small></div>
+    <div id="res-status" class="status"></div>
+    <div class="stats">
+      <div><b id="res-benar">0</b><span>Benar</span></div>
+      <div><b id="res-salah">0</b><span>Salah</span></div>
+      <div><b id="res-kosong">0</b><span>Kosong</span></div>
+    </div>
+    <table class="detail" id="res-detail"></table>
+    <div id="res-send" class="sendbox"></div>
+    <button id="btn-retry" class="btn primary" type="button" hidden>Kirim Ulang Hasil</button>
+    <button id="btn-again" class="btn big" type="button" hidden>🔁 Kerjakan Lagi</button>
+  </div>
+</section>
+
+<!-- ============ MODAL KONFIRMASI ============ -->
+<div id="modal" class="modal" hidden>
+  <div class="card modal-box">
+    <h3 id="m-title"></h3>
+    <p id="m-body"></p>
+    <div class="m-actions">
+      <button id="m-cancel" class="btn" type="button">Kembali</button>
+      <button id="m-ok" class="btn danger" type="button">Ya, Kirim</button>
+    </div>
+  </div>
+</div>
+
+<script src="soal.js"></script>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
