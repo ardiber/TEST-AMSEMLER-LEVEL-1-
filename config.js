@@ -16,7 +16,7 @@ const CONFIG = {
 
   /* ► Isi dengan URL Web App Google Apps Script (berakhiran /exec).
        Lihat PETUNJUK.md langkah 2.  */
-  URL_APPS_SCRIPT : "https://script.google.com/macros/s/AKfycbxrQKOjuakwUENBGkOn7oWQhCowh4lxaThS8hnHX38Z8LxblQMZ-OzIsARtjKth7OP04A/exec",
+  URL_APPS_SCRIPT : "https://script.google.com/macros/s/AKfycbwTrIwVHCyEcf6rlROjVRhP_7XCCUQR5B6xjSgOay4wFBIOwTEILnXnWfcLlo_bHZ5yXA/exec",
 
   TOKEN_COOLDOWN_DETIK : 60,   // jeda sebelum tombol "kirim ulang token" aktif
 
