@@ -12,22 +12,36 @@
 <section id="scr-login" class="screen active">
   <div class="card login-card">
     <div class="brand">⚙️</div>
-    <h1 id="judul-ujian">TEST ASSEMLER</h1>
+    <h1 id="judul-ujian">Ujian Online</h1>
     <p class="muted" id="sub-judul"></p>
 
     <form id="form-login" autocomplete="off">
       <label>Nama Lengkap
         <input id="in-nama" type="text" required maxlength="60" placeholder="Contoh: Budi Santoso">
       </label>
-      <label>DEVISI/JABATAN
-        <input id="in-id" type="text" required maxlength="30" placeholder="Contoh: SMELTER">
+      <label>NIS / NIK / Kelas
+        <input id="in-id" type="text" required maxlength="30" placeholder="Contoh: XII-TKR-01 / 12345">
       </label>
       <label>No. WhatsApp (untuk menerima nilai)
         <input id="in-wa" type="tel" required inputmode="numeric" maxlength="16" placeholder="08xxxxxxxxxx">
       </label>
       <div id="info-aturan" class="rules"></div>
       <p id="login-err" class="err" hidden></p>
-      <button class="btn primary big" type="submit">Mulai Ujian</button>
+
+      <div id="token-step" class="token-box" hidden>
+        <p>✅ Token telah dikirim ke WhatsApp <b id="tk-wa"></b>.<br>
+           <small class="muted">Berlaku <span id="tk-exp">15</span> menit. Cek WhatsApp Anda.</small></p>
+        <label>Masukkan Token (6 digit)
+          <input id="in-token" class="token-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="••••••" autocomplete="one-time-code">
+        </label>
+      </div>
+
+      <button id="btn-login" class="btn primary big" type="submit">Mulai Ujian</button>
+      <div id="token-links" class="token-links" hidden>
+        <button id="btn-resend" class="linkbtn" type="button" disabled>Kirim ulang token</button>
+        <span class="muted">•</span>
+        <button id="btn-ganti" class="linkbtn" type="button">Ganti data / nomor</button>
+      </div>
     </form>
   </div>
 </section>
@@ -84,7 +98,20 @@
     <table class="detail" id="res-detail"></table>
     <div id="res-send" class="sendbox"></div>
     <button id="btn-retry" class="btn primary" type="button" hidden>Kirim Ulang Hasil</button>
+    <button id="btn-review" class="btn primary big" type="button" hidden>📖 Lihat Pembahasan Jawaban</button>
     <button id="btn-again" class="btn big" type="button" hidden>🔁 Kerjakan Lagi</button>
+  </div>
+</section>
+
+<!-- ============ LAYAR 4: PEMBAHASAN ============ -->
+<section id="scr-review" class="screen">
+  <header class="topbar">
+    <button id="rv-back" class="btn small" style="margin:0" type="button">← Kembali ke Nilai</button>
+    <div class="who"><strong>Pembahasan Jawaban</strong><span id="rv-sum" class="muted"></span></div>
+  </header>
+  <div class="review-wrap">
+    <div id="rv-filter" class="chips"></div>
+    <div id="rv-list"></div>
   </div>
 </section>
 
