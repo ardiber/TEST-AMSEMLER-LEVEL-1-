@@ -54,7 +54,112 @@
     return d;
   }
 
-  /* ---------- login ---------- */
+  /* ---------- API Apps Script ---------- */
+  async function api(body) {
+    if (/GANTI_DENGAN/.test(CONFIG.URL_APPS_SCRIPT)) throw new Error("URL Apps Script belum diisi di config.js.");
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 30000);
+    try {
+      const res = await fetch(CONFIG.URL_APPS_SCRIPT, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" }, // hindari preflight CORS
+        body: JSON.stringify(body),
+        signal: ctrl.signal,
+      });
+      return await res.json();
+    } catch (e) {
+      throw new Error(e.name === "AbortError" ? "Server lama merespons. Coba lagi." : "Koneksi gagal. Periksa internet Anda.");
+    } finally { clearTimeout(to); }
+  }
+
+  /* ---------- login + order token ---------- */
+  let tokenStep = false;      // false = isi data, true = isi token
+  let resendTimer = null;
+
+  function loginMsg(m) { const e = $("#login-err"); e.textContent = m || ""; e.hidden = !m; }
+  function setBusy(b, txt) { const btn = $("#btn-login"); btn.disabled = b; if (txt) btn.textContent = txt; }
+
+  function resetLogin() {
+    tokenStep = false;
+    clearInterval(resendTimer);
+    ["#in-nama", "#in-id", "#in-wa"].forEach((s) => ($(s).readOnly = false));
+    $("#token-step").hidden = true;
+    $("#token-links").hidden = true;
+    $("#in-token").value = "";
+    loginMsg("");
+    setBusy(false, CONFIG.WAJIB_TOKEN ? "📲 Order Token via WhatsApp" : "Mulai Ujian");
+  }
+
+  function startCooldown(detik) {
+    const b = $("#btn-resend");
+    clearInterval(resendTimer);
+    let t = detik;
+    const paint = () => {
+      b.disabled = t > 0;
+      b.textContent = t > 0 ? "Kirim ulang token (" + t + ")" : "Kirim ulang token";
+    };
+    paint();
+    resendTimer = setInterval(() => { t--; paint(); if (t <= 0) clearInterval(resendTimer); }, 1000);
+  }
+
+  function readForm() {
+    const nama = $("#in-nama").value.trim();
+    const id = $("#in-id").value.trim();
+    const wa = normWA($("#in-wa").value);
+    if (nama.length < 3) return loginMsg("Nama minimal 3 karakter.");
+    if (!id) return loginMsg("NIS / NIK / Kelas wajib diisi.");
+    if (!/^62\d{8,13}$/.test(wa)) return loginMsg("Nomor WhatsApp tidak valid. Contoh: 081234567890");
+    return { nama, id, wa };
+  }
+
+  async function orderToken(isResend) {
+    const f = readForm();
+    if (!f) return;
+    loginMsg("");
+    setBusy(true, "Mengirim token…");
+    try {
+      const r = await api({ aksi: "order", kode: CONFIG.KODE_UJIAN, judul: CONFIG.JUDUL, nama: f.nama, nis: f.id, wa: f.wa });
+      if (!r.ok) {
+        loginMsg(r.error || "Gagal order token.");
+        if (r.tunggu && tokenStep) startCooldown(r.tunggu);
+        setBusy(false, tokenStep ? "Mulai Ujian" : "📲 Order Token via WhatsApp");
+        return;
+      }
+      tokenStep = true;
+      ["#in-nama", "#in-id", "#in-wa"].forEach((s) => ($(s).readOnly = true));
+      $("#tk-wa").textContent = "+" + f.wa;
+      $("#tk-exp").textContent = r.berlaku || 15;
+      $("#token-step").hidden = false;
+      $("#token-links").hidden = false;
+      $("#in-token").value = "";
+      $("#in-token").focus();
+      startCooldown(r.tunggu || CONFIG.TOKEN_COOLDOWN_DETIK);
+      setBusy(false, "Mulai Ujian");
+    } catch (e) {
+      loginMsg(e.message);
+      setBusy(false, tokenStep ? "Mulai Ujian" : "📲 Order Token via WhatsApp");
+    }
+  }
+
+  async function verifyToken() {
+    const f = readForm();
+    if (!f) return;
+    const token = $("#in-token").value.trim();
+    if (!/^\d{6}$/.test(token)) return loginMsg("Token harus 6 digit angka.");
+    loginMsg("");
+    setBusy(true, "Memeriksa token…");
+    try {
+      const r = await api({ aksi: "verify", kode: CONFIG.KODE_UJIAN, wa: f.wa, token });
+      if (!r.ok) { loginMsg(r.error || "Token tidak valid."); setBusy(false, "Mulai Ujian"); return; }
+      clearInterval(resendTimer);
+      setBusy(false, "Mulai Ujian");
+      startExam(f.nama, f.id, f.wa, token);
+    } catch (e) {
+      loginMsg(e.message);
+      setBusy(false, "Mulai Ujian");
+    }
+  }
+
   function initLogin() {
     $("#judul-ujian").textContent = CONFIG.JUDUL;
     $("#sub-judul").textContent = CONFIG.SUB_JUDUL;
@@ -67,26 +172,23 @@
       " multi-jawaban, " + n.tf + " benar/salah)</li>" +
       "<li>Waktu: <b>" + CONFIG.DURASI_MENIT + " menit</b>. Jawaban terkirim otomatis saat waktu habis.</li>" +
       "<li>Soal multi-jawaban dinilai benar jika <b>semua</b> pilihan benar terpilih dan tidak ada yang salah.</li>" +
+      (CONFIG.WAJIB_TOKEN ? "<li>Untuk memulai, <b>order token</b>. Token dikirim ke WhatsApp Anda.</li>" : "") +
       "<li>Nilai minimal lulus: <b>" + CONFIG.KKM + "</b>. Nilai dikirim ke WhatsApp Anda.</li>" +
       "<li>Jangan menutup atau berpindah halaman selama ujian.</li></ul>";
 
+    resetLogin();
     $("#form-login").addEventListener("submit", (e) => {
       e.preventDefault();
-      const nama = $("#in-nama").value.trim();
-      const id = $("#in-id").value.trim();
-      const wa = normWA($("#in-wa").value);
-      const err = $("#login-err");
-      if (nama.length < 3) return fail("Nama minimal 3 karakter.");
-      if (!id) return fail("NIS / NIK / Kelas wajib diisi.");
-      if (!/^62\d{8,13}$/.test(wa)) return fail("Nomor WhatsApp tidak valid. Contoh: 081234567890");
-      function fail(m) { err.textContent = m; err.hidden = false; }
-      err.hidden = true;
-      startExam(nama, id, wa);
+      if (!CONFIG.WAJIB_TOKEN) { const f = readForm(); if (f) startExam(f.nama, f.id, f.wa, ""); return; }
+      if (!tokenStep) orderToken(false); else verifyToken();
     });
+    $("#btn-resend").addEventListener("click", () => orderToken(true));
+    $("#btn-ganti").addEventListener("click", resetLogin);
+    $("#in-token").addEventListener("input", (e) => { e.target.value = e.target.value.replace(/\D/g, "").slice(0, 6); });
   }
 
   /* ---------- mulai ---------- */
-  function startExam(nama, id, wa) {
+  function startExam(nama, id, wa, token) {
     const order = [];
     ["single", "multi", "tf"].forEach((tp) => {
       let list = SOAL.filter((q) => q.tipe === tp);
@@ -101,7 +203,7 @@
     });
     const now = Date.now();
     S = {
-      subId: uuid(), nama, id, wa, order, ans: {}, flag: {}, cur: 0,
+      subId: uuid(), nama, id, wa, token, order, ans: {}, flag: {}, cur: 0,
       start: now, end: now + CONFIG.DURASI_MENIT * 60000,
       tabOut: 0, submitted: false, result: null, sent: false,
     };
@@ -286,6 +388,7 @@
     const retry = $("#btn-retry");
     retry.hidden = true;
     $("#btn-again").hidden = !CONFIG.BOLEH_ULANG;
+    $("#btn-review").hidden = !CONFIG.TAMPILKAN_PEMBAHASAN;
     if (S.sent) {
       el.className = "sendbox ok";
       el.textContent = "✅ Jawaban tersimpan ke spreadsheet" +
@@ -311,7 +414,7 @@
     sending = true; paintSend();
     const r = S.result;
     const payload = {
-      kode: CONFIG.KODE_UJIAN, subId: S.subId, nama: S.nama, nis: S.id, wa: S.wa,
+      aksi: "kirim", kode: CONFIG.KODE_UJIAN, token: S.token || "", subId: S.subId, nama: S.nama, nis: S.id, wa: S.wa,
       skor: r.skor, benar: r.benar, salah: r.salah, kosong: r.kosong, total: r.total,
       kkm: CONFIG.KKM, lulus: r.lulus, judul: CONFIG.JUDUL,
       bagian: r.per, durasiDetik: Math.round(((S.finishAt || Date.now()) - S.start) / 1000),
@@ -339,6 +442,69 @@
     paintSend();
   }
 
+  /* ---------- pembahasan ---------- */
+  let rvFilter = "all";
+  function statusOf(q) {
+    const a = (S.ans[q.id] || []).slice().sort();
+    const k = q.kunci.slice().sort();
+    if (!a.length) return "nil";
+    return a.length === k.length && a.every((v, i) => v === k[i]) ? "ok" : "no";
+  }
+  function openReview() { rvFilter = "all"; renderReview(); show("#scr-review"); }
+  function renderReview() {
+    const cnt = { all: S.order.length, ok: 0, no: 0, nil: 0 };
+    S.order.forEach((o) => cnt[statusOf(byId[o.id])]++);
+    $("#rv-sum").textContent = cnt.ok + " benar • " + cnt.no + " salah • " + cnt.nil + " kosong";
+    const F = [["all", "Semua"], ["ok", "✅ Benar"], ["no", "❌ Salah"], ["nil", "⚪ Kosong"]];
+    $("#rv-filter").innerHTML = "";
+    F.forEach(([k, label]) => {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.className = "chip" + (rvFilter === k ? " on" : "");
+      b.textContent = label + " (" + cnt[k] + ")";
+      b.onclick = () => { rvFilter = k; renderReview(); window.scrollTo(0, 0); };
+      $("#rv-filter").appendChild(b);
+    });
+    const list = $("#rv-list");
+    list.innerHTML = "";
+    S.order.forEach((o, i) => {
+      const q = byId[o.id];
+      const st = statusOf(q);
+      if (rvFilter !== "all" && rvFilter !== st) return;
+      const mine = S.ans[q.id] || [];
+      const card = document.createElement("div");
+      card.className = "card rv-card " + st;
+      const label = { ok: "BENAR", no: "SALAH", nil: "TIDAK DIJAWAB" }[st];
+      card.innerHTML =
+        '<div class="rv-head"><span class="badge">Soal ' + (i + 1) + '</span>' +
+        '<span class="badge soft">' + TIPE_LABEL[q.tipe].split(" –")[0] + '</span>' +
+        '<span class="tag ' + st + '">' + label + '</span></div>';
+      const qt = document.createElement("div");
+      qt.className = "rv-q"; qt.textContent = q.soal;
+      card.appendChild(qt);
+      o.opt.forEach((orig, pos) => {
+        const isKey = q.kunci.includes(orig);
+        const picked = mine.includes(orig);
+        const row = document.createElement("div");
+        row.className = "rv-opt" + (isKey ? " key" : "") + (picked && !isKey ? " wrong" : "");
+        const k = document.createElement("span"); k.className = "k";
+        k.textContent = isKey ? "✓" : picked ? "✗" : LETTERS[pos];
+        const t = document.createElement("span"); t.className = "t"; t.textContent = q.opsi[orig];
+        row.append(k, t);
+        let note = "";
+        if (isKey && picked) note = '<span class="note g">Jawaban Anda • Benar</span>';
+        else if (isKey) note = '<span class="note g">Kunci jawaban</span>';
+        else if (picked) note = '<span class="note r">Jawaban Anda • Salah</span>';
+        if (note) row.insertAdjacentHTML("beforeend", note);
+        card.appendChild(row);
+      });
+      if (st === "nil") card.insertAdjacentHTML("beforeend", '<div class="rv-ans">Anda tidak menjawab soal ini.</div>');
+      if (q.tipe === "multi" && st !== "ok")
+        card.insertAdjacentHTML("beforeend", '<div class="rv-ans">Soal multi-jawaban benar jika semua pilihan yang benar terpilih dan tidak ada pilihan salah.</div>');
+      list.appendChild(card);
+    });
+  }
+
   /* ---------- ulangi ujian ---------- */
   async function ulangUjian() {
     if (!S.sent) {
@@ -356,7 +522,7 @@
     document.querySelector(".stats").hidden = false;
     $("#res-detail").hidden = false;
     $("#in-nama").value = nama; $("#in-id").value = id; $("#in-wa").value = wa;
-    $("#login-err").hidden = true;
+    resetLogin();
     show("#scr-login");
   }
 
@@ -372,6 +538,8 @@
     $("#btn-finish").onclick = () => finish(false);
     $("#btn-retry").onclick = () => sendResult(1);
     $("#btn-again").onclick = ulangUjian;
+    $("#btn-review").onclick = openReview;
+    $("#rv-back").onclick = () => show("#scr-result");
 
     document.addEventListener("keydown", (e) => {
       if (!S || S.submitted || !$("#scr-exam").classList.contains("active")) return;
