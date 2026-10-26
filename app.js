@@ -54,8 +54,22 @@
     return d;
   }
 
+  /* ---------- ID perangkat (tetap, tidak ikut terhapus saat reset ujian) ---------- */
+  function deviceId() {
+    let id = null;
+    try { id = localStorage.getItem("ujian_dev_id"); } catch (e) {}
+    if (!id) {
+      id = (window.crypto && crypto.randomUUID)
+        ? crypto.randomUUID()
+        : Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+      try { localStorage.setItem("ujian_dev_id", id); } catch (e) {}
+    }
+    return id;
+  }
+
   /* ---------- API Apps Script ---------- */
   async function api(body) {
+    body = Object.assign({ dev: deviceId(), ua: navigator.userAgent }, body);
     if (/GANTI_DENGAN/.test(CONFIG.URL_APPS_SCRIPT)) throw new Error("URL Apps Script belum diisi di config.js.");
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 30000);
